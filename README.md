@@ -1,4 +1,4 @@
-# Grantora
+# Grantora (grant-tracking)
 
 Grantora is a web application for managing government grant schemes and beneficiary applications. It provides scheme configuration, eligibility assessment, application status tracking, and a staged officer review process. Administrators manage schemes, accounts, routing rules, and the queue of approved applications awaiting disbursement processing.
 
