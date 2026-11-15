@@ -73,6 +73,13 @@ public class SchemeService {
             question.setQuestionText(incoming.getQuestionText().trim());
             question.setQuestionType(
                     incoming.getQuestionType().trim().toUpperCase(Locale.ROOT));
+            BigDecimal legacyMaximum = incoming.getAnswerOptions() == null ? null
+                    : incoming.getAnswerOptions().stream()
+                            .map(SchemeEligibilityQuestion.AnswerOption::points)
+                            .filter(java.util.Objects::nonNull)
+                            .max(BigDecimal::compareTo).orElse(null);
+            question.setMaximumPoints(incoming.getMaximumPoints() == null
+                    ? legacyMaximum : incoming.getMaximumPoints());
             question.setRequired(incoming.isRequired());
             question.setAnswerOptions(incoming.getAnswerOptions().stream()
                     .map(option -> new SchemeEligibilityQuestion.AnswerOption(
@@ -126,8 +133,8 @@ public class SchemeService {
             invalidConfiguration("Maximum annual income supports up to two decimal places");
         }
         if (scheme.getEligibilityQuestions() == null
-                || scheme.getEligibilityQuestions().size() != 5) {
-            invalidConfiguration("Exactly five custom eligibility questions are required");
+                || scheme.getEligibilityQuestions().isEmpty()) {
+            invalidConfiguration("At least one eligibility question is required");
         }
 
         BigDecimal maximumPoints = BigDecimal.ZERO;
@@ -142,8 +149,12 @@ public class SchemeService {
                     : question.getQuestionType().trim().toUpperCase(Locale.ROOT);
             List<SchemeEligibilityQuestion.AnswerOption> options =
                     question.getAnswerOptions();
-            if (!type.equals("YES_NO") && !type.equals("MULTIPLE_CHOICE")) {
-                invalidConfiguration("Question type must be YES_NO or MULTIPLE_CHOICE");
+            if (!type.equals("YES_NO") && !type.equals("SINGLE_CHOICE")
+                    && !type.equals("MULTIPLE_CHOICE")) {
+                invalidConfiguration("Question type must be YES_NO or SINGLE_CHOICE");
+            }
+            if (type.equals("MULTIPLE_CHOICE")) {
+                invalidConfiguration("Multiple choice scoring is not supported; use single choice");
             }
             if (options == null || options.size() < 2) {
                 invalidConfiguration("Each eligibility question needs at least two options");
@@ -173,10 +184,18 @@ public class SchemeService {
                     || !optionValues.contains("no"))) {
                 invalidConfiguration("YES_NO questions must have YES and NO answer values");
             }
-            maximumPoints = maximumPoints.add(questionMaximum);
+            BigDecimal configuredMaximum = question.getMaximumPoints() == null
+                    ? questionMaximum : question.getMaximumPoints();
+            if (configuredMaximum == null || configuredMaximum.signum() <= 0
+                    || configuredMaximum.stripTrailingZeros().scale() > 2
+                    || configuredMaximum.precision() - configuredMaximum.scale() > 3
+                    || questionMaximum.compareTo(configuredMaximum) > 0) {
+                invalidConfiguration("Each question needs a valid maximum weight at least as large as its highest option score");
+            }
+            maximumPoints = maximumPoints.add(configuredMaximum);
         }
-        if (maximumPoints.signum() <= 0) {
-            invalidConfiguration("Custom question options must offer a positive score");
+        if (maximumPoints.compareTo(BigDecimal.valueOf(100)) != 0) {
+            invalidConfiguration("Question maximum weights must total exactly 100 points");
         }
     }
 

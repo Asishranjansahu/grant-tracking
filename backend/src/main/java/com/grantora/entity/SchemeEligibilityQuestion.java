@@ -38,6 +38,9 @@ public class SchemeEligibilityQuestion {
     @Column(name = "question_type", nullable = false, length = 30)
     private String questionType;
 
+    @Column(name = "maximum_points", precision = 5, scale = 2)
+    private BigDecimal maximumPoints;
+
     @Column(nullable = false)
     private boolean required = true;
 
@@ -80,6 +83,10 @@ public class SchemeEligibilityQuestion {
     public void setQuestionType(String questionType) {
         this.questionType = questionType;
     }
+
+    public BigDecimal getMaximumPoints() { return maximumPoints; }
+
+    public void setMaximumPoints(BigDecimal maximumPoints) { this.maximumPoints = maximumPoints; }
 
     public boolean isRequired() {
         return required;

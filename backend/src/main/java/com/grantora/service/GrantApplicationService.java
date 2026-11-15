@@ -505,9 +505,9 @@ public class GrantApplicationService {
     }
 
     private void validateAnswers(Scheme scheme, List<EligibilityAnswer> answers) {
-        if (answers.size() > 5) {
+        if (answers.size() > scheme.getEligibilityQuestions().size()) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "At most five eligibility answers are allowed");
+                    HttpStatus.BAD_REQUEST, "Too many eligibility answers were submitted");
         }
         java.util.Set<Long> answeredQuestionIds = new java.util.HashSet<>();
         for (EligibilityAnswer answer : answers) {

@@ -14,5 +14,5 @@ public record GrantApplicationRequest(
         @NotBlank @Size(max = 10000) String applicationDetails,
         @NotNull @DecimalMin(value = "0.01") @Digits(integer = 10, fraction = 2)
         BigDecimal requestedAmount,
-        @Size(max = 5) List<EligibilityAnswer> eligibilityAnswers
+        @Size(max = 100) List<EligibilityAnswer> eligibilityAnswers
 ) {}

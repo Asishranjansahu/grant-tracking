@@ -66,10 +66,11 @@ public class EligibilityScoringService {
                             .filter(option -> option.value().equals(answer.answer()))
                             .findFirst()
                             .orElse(null);
-            BigDecimal questionMaximum = question.getAnswerOptions().stream()
-                    .map(SchemeEligibilityQuestion.AnswerOption::points)
-                    .max(BigDecimal::compareTo)
-                    .orElse(BigDecimal.ZERO);
+            BigDecimal questionMaximum = question.getMaximumPoints() == null
+                    ? question.getAnswerOptions().stream()
+                            .map(SchemeEligibilityQuestion.AnswerOption::points)
+                            .max(BigDecimal::compareTo).orElse(BigDecimal.ZERO)
+                    : question.getMaximumPoints();
 
             if (answer != null || question.isRequired()) {
                 maximumAvailablePoints = maximumAvailablePoints.add(questionMaximum);
@@ -108,8 +109,15 @@ public class EligibilityScoringService {
             }
         }
 
-        if (questions.size() != 5) {
-            missingInformation.add("This scheme does not have a complete eligibility question configuration.");
+        BigDecimal configuredWeight = questions.stream()
+                .map(question -> question.getMaximumPoints() == null
+                        ? question.getAnswerOptions().stream()
+                                .map(SchemeEligibilityQuestion.AnswerOption::points)
+                                .max(BigDecimal::compareTo).orElse(BigDecimal.ZERO)
+                        : question.getMaximumPoints())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (questions.isEmpty() || configuredWeight.compareTo(BigDecimal.valueOf(100)) != 0) {
+            missingInformation.add("This scheme does not have a complete 100-point eligibility configuration.");
         }
 
         BigDecimal score = maximumAvailablePoints.signum() == 0

@@ -199,13 +199,15 @@ The application roles are `ADMIN`, `BENEFICIARY`, and `OFFICER`. Officer level i
 
 `EligibilityScoringService` evaluates three mandatory conditions: the beneficiary's age against the scheme's minimum and maximum age, annual income against the scheme maximum, and beneficiary category against the scheme's eligible categories. A missing profile value or missing scheme configuration produces an incomplete result; a failed mandatory condition produces `INELIGIBLE`.
 
-Each scheme is configured with exactly five custom eligibility questions. Answer options carry points and a `meetsEligibilityCondition` flag. The implemented score is:
+Each scheme has a configurable set of single-answer eligibility questions. Admins can add, remove, reorder, and configure questions and their options in Scheme Management. Each question has an explicit maximum weight, and the maximum weights must total exactly 100 points. Option points cannot be negative or exceed their question weight. Yes/no and single-choice questions are supported; multi-select scoring is rejected because the scoring model awards one selected option per question. Answer options also carry a `meetsEligibilityCondition` flag. The implemented score is:
 
 ```text
 score out of 100 = points earned / maximum available points × 100
 ```
 
-The division is rounded to two decimal places using half-up rounding. The maximum is built from required questions plus optional questions that the applicant answered. Required unanswered questions, an incomplete five-question configuration, or missing threshold make the result `NEEDS_MORE_INFORMATION`. After required data and mandatory criteria are satisfied, a score greater than or equal to the scheme threshold yields `ELIGIBLE`; a lower score yields `INELIGIBLE`. The option condition flag is included in the evaluation details, but the current scorer adds the selected option's configured points even when that flag is false.
+The division is rounded to two decimal places using half-up rounding. The maximum is built from required questions plus optional questions that the applicant answered. Required unanswered questions, an incomplete 100-point configuration, or missing threshold make the result `NEEDS_MORE_INFORMATION`. After required data and mandatory criteria are satisfied, a score greater than or equal to the scheme threshold yields `ELIGIBLE`; a lower score yields `INELIGIBLE`. The option condition flag is included in the evaluation details, but the scorer adds the selected option's configured points even when that flag is false. Evaluation records retain their question, answer, points, threshold, and timestamp snapshots when scheme configuration is later edited.
+
+Mandatory rules currently cover age, annual income, and beneficiary category. Scheme-specific required document types and document-completeness eligibility gating are not configured by this model; document uploads and officer verification remain part of the existing application workflow.
 
 An eligible result only permits submission. It does not guarantee officer approval or payment. Eligibility is evaluated and saved with the application, and submission is rejected unless the evaluation is `ELIGIBLE`.
 

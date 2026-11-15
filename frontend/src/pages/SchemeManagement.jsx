@@ -10,12 +10,10 @@ import "../styles/SchemeManagement.css";
 
 const emptyQuestion = () => ({
   questionText: "",
-  questionType: "YES_NO",
+  questionType: "SINGLE_CHOICE",
   required: true,
-  answerOptions: [
-    { value: "YES", label: "Yes", points: "", meetsEligibilityCondition: true },
-    { value: "NO", label: "No", points: "", meetsEligibilityCondition: false },
-  ],
+  maximumPoints: "",
+  answerOptions: [{ value: "", label: "", points: "", meetsEligibilityCondition: false }, { value: "", label: "", points: "", meetsEligibilityCondition: false }],
 });
 
 const emptyForm = {
@@ -28,7 +26,7 @@ const emptyForm = {
   maximumGrantAmount: "",
   eligibilityThreshold: "70",
   eligibleCategories: "",
-  eligibilityQuestions: Array.from({ length: 5 }, emptyQuestion),
+  eligibilityQuestions: [],
   applicationStartDate: "",
   applicationEndDate: "",
   status: "DRAFT",
@@ -43,7 +41,7 @@ const numericFields = [
 ];
 
 function toFormValues(scheme) {
-  const questions = (scheme.eligibilityQuestions || []).slice(0, 5);
+  const questions = scheme.eligibilityQuestions || [];
   return {
     ...emptyForm,
     ...Object.fromEntries(
@@ -58,20 +56,16 @@ function toFormValues(scheme) {
               : String(scheme[field]),
         ])
     ),
-    eligibilityQuestions: Array.from({ length: 5 }, (_, index) => {
-      const question = questions[index];
-      return question
-        ? {
+    eligibilityQuestions: questions.map((question) => ({
             questionText: question.questionText || "",
-            questionType: question.questionType || "YES_NO",
+            questionType: question.questionType || "SINGLE_CHOICE",
             required: question.required !== false,
+            maximumPoints: question.maximumPoints == null ? "" : String(question.maximumPoints),
             answerOptions: (question.answerOptions || []).map((option) => ({
               ...option,
               points: option.points == null ? "" : String(option.points),
             })),
-          }
-        : emptyQuestion();
-    }),
+          })),
   };
 }
 
@@ -100,6 +94,7 @@ function toPayload(form) {
     questionText: question.questionText.trim(),
     questionType: question.questionType,
     required: question.required,
+    maximumPoints: question.maximumPoints === "" ? null : Number(question.maximumPoints),
     answerOptions: question.answerOptions.map((option) => ({
       value: option.value.trim(),
       label: option.label.trim(),
@@ -229,6 +224,24 @@ function SchemeManagement() {
       ),
     });
   };
+
+  const addQuestion = () => setForm((current) => ({
+    ...current,
+    eligibilityQuestions: [...current.eligibilityQuestions, emptyQuestion()],
+  }));
+
+  const removeQuestion = (questionIndex) => setForm((current) => ({
+    ...current,
+    eligibilityQuestions: current.eligibilityQuestions.filter((_, index) => index !== questionIndex),
+  }));
+
+  const moveQuestion = (questionIndex, direction) => setForm((current) => {
+    const questions = [...current.eligibilityQuestions];
+    const target = questionIndex + direction;
+    if (target < 0 || target >= questions.length) return current;
+    [questions[questionIndex], questions[target]] = [questions[target], questions[questionIndex]];
+    return { ...current, eligibilityQuestions: questions };
+  });
 
   const resetForm = () => {
     setForm(emptyForm);
@@ -526,18 +539,17 @@ function SchemeManagement() {
             aria-labelledby="scheme-questions-heading"
           >
             <h4 id="scheme-questions-heading">
-              Custom eligibility questions (exactly five)
+              Eligibility questions ({form.eligibilityQuestions.length})
             </h4>
             <p>
-              Set the score and eligibility condition for each answer. The
-              custom questions are scored together against the threshold.
+              Configure dynamic, single answer questions. Question weights must add up to 100 points.
             </p>
             {form.eligibilityQuestions.map((question, questionIndex) => (
               <fieldset
                 className="scheme-management__question"
                 key={questionIndex}
               >
-                <legend>Question {questionIndex + 1}</legend>
+                <legend>Question {questionIndex + 1} · maximum {question.maximumPoints || 0} points</legend>
                 <div className="scheme-management__question-header">
                   <label>
                     Question text
@@ -564,8 +576,13 @@ function SchemeManagement() {
                       }
                     >
                       <option value="YES_NO">Yes / No</option>
-                      <option value="MULTIPLE_CHOICE">Multiple choice</option>
+                      <option value="SINGLE_CHOICE">Single choice</option>
                     </select>
+                  </label>
+                  <label>
+                    Maximum weight (points)
+                    <input type="number" min="0.01" max="100" step="0.01" value={question.maximumPoints}
+                      onChange={(event) => updateQuestion(questionIndex, { maximumPoints: event.target.value })} required />
                   </label>
                   <label className="scheme-management__checkbox">
                     <input
@@ -660,7 +677,7 @@ function SchemeManagement() {
                         />
                         Meets eligibility condition
                       </label>
-                      {question.questionType === "MULTIPLE_CHOICE" && (
+                      {question.questionType !== "YES_NO" && (
                         <button
                           className="scheme-management__button scheme-management__button--danger"
                           type="button"
@@ -675,7 +692,7 @@ function SchemeManagement() {
                     </div>
                   ))}
                 </div>
-                {question.questionType === "MULTIPLE_CHOICE" && (
+                {question.questionType !== "YES_NO" && (
                   <button
                     className="scheme-management__button scheme-management__button--secondary"
                     type="button"
@@ -684,8 +701,15 @@ function SchemeManagement() {
                     Add answer option
                   </button>
                 )}
+                <div className="scheme-management__form-actions">
+                  <button className="scheme-management__button scheme-management__button--secondary" type="button" onClick={() => moveQuestion(questionIndex, -1)} disabled={questionIndex === 0}>Move up</button>
+                  <button className="scheme-management__button scheme-management__button--secondary" type="button" onClick={() => moveQuestion(questionIndex, 1)} disabled={questionIndex === form.eligibilityQuestions.length - 1}>Move down</button>
+                  <button className="scheme-management__button scheme-management__button--danger" type="button" onClick={() => removeQuestion(questionIndex)}>Remove question</button>
+                </div>
               </fieldset>
             ))}
+            <button className="scheme-management__button scheme-management__button--secondary" type="button" onClick={addQuestion}>Add eligibility question</button>
+            <p>Configured maximum weight total: {form.eligibilityQuestions.reduce((sum, question) => sum + (Number(question.maximumPoints) || 0), 0)} / 100</p>
           </section>
           <div className="scheme-management__form-actions">
             <button
